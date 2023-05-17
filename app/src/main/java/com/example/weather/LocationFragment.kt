@@ -3,6 +3,7 @@ package com.example.weather
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.location.Geocoder
 import android.location.LocationManager
 import android.os.Bundle
@@ -17,7 +18,11 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
+import com.bumptech.glide.Glide
 import com.example.weather.databinding.LocationFragmentBinding
+import com.google.mlkit.nl.translate.TranslateLanguage
+import com.google.mlkit.nl.translate.Translation
+import com.google.mlkit.nl.translate.TranslatorOptions
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,9 +64,56 @@ class LocationFragment : Fragment(R.layout.location_fragment) {
     private fun LocationFragmentBinding.renderUiState(uiState: WeatherUiState) {
         name.text = uiState.name
         tempC.text = uiState.tempC.toString()
-        textCondition.text = uiState.text_condition
         feelsLikeC.text = uiState.feelsLikeC.toString()
         localtime.text = uiState.localtime
+
+        val options = TranslatorOptions.Builder()
+            .setSourceLanguage(TranslateLanguage.ENGLISH)
+            .setTargetLanguage(TranslateLanguage.RUSSIAN)
+            .build()
+
+        val translator = Translation.getClient(options)
+        lifecycle.addObserver(translator)
+        translator.downloadModelIfNeeded()
+            .addOnSuccessListener {
+                translator.translate(uiState.text_condition)
+                    .addOnSuccessListener {
+                        textCondition.text = it
+                        when (textCondition.text) {
+                            "Частично облачно" -> {
+                                weatherBackground.setImageResource(R.drawable.fluffy_clouds)
+                            }
+                            "Облачно" -> {
+                                weatherBackground.setImageResource(R.drawable.clouds)
+                            }
+                            "Умеренный дождь" -> {
+                                weatherBackground.setImageResource(R.drawable.rain_autumn)
+                            }
+                            "Солнечный" -> {
+                                weatherBackground.setImageResource(R.drawable.sunny)
+                            }
+                            "Небольшой дождь моросит" -> {
+                                weatherBackground.setImageResource(R.drawable.light_rain)
+                            }
+                            else -> {
+                                weatherBackground.setImageResource(R.drawable.white_cloud)
+                            }
+                        }
+                    }
+                    .addOnFailureListener {
+                        //Error
+                        Log.e("err", "Error: " + it.localizedMessage)
+                    }
+            }
+            .addOnFailureListener {
+                Log.e("err", "Download Error: " + it.localizedMessage)
+
+            }
+
+        Glide.with(icon)
+            .load("https:${uiState.iconURL}")
+            .into(icon)
+        Log.d("IconURL", "https:${uiState.iconURL}")
     }
 
     private fun onEvent(event: WeatherVMEvent) {
@@ -93,7 +145,8 @@ data class WeatherUiState(
     val tempC: Float? = 0.0F,
     val text_condition: String = "",
     val feelsLikeC: Float = 0.0F,
-    val localtime: String = ""
+    val localtime: String = "",
+    val iconURL: String = ""
 )
 
 data class WeatherVmState(
@@ -143,11 +196,13 @@ class WeatherViewModel @Inject constructor(
 
             WeatherUiState(
                 name = getCityTask.await(),
-                tempC = weather?.currentWeather?.tempC,
-                text_condition = weather?.currentWeather?.condition?.text ?: "---",
+                tempC = weather?.currentWeather?.tempC ?: 0.0F ,
+                text_condition = weather?.currentWeather?.condition?.text ?: "",
                 feelsLikeC = weather?.currentWeather?.feelsLikeC ?: 0.0F,
-                localtime = weather?.location?.localtime ?: "---"
+                localtime = weather?.location?.localtime ?: "",
+                iconURL = weather?.currentWeather?.condition?.icon ?: "-"
             )
+
         }
 
     private suspend fun getCity(latLng: LatLng): String? = withContext(Dispatchers.IO) {
@@ -178,6 +233,7 @@ class WeatherViewModel @Inject constructor(
         }
     }
 
+
     fun onLocationPermissionGranted() {
         if (isLocationEnabled()) {
             onLocationEnabled()
@@ -197,9 +253,13 @@ class WeatherViewModel @Inject constructor(
     }
 }
 
+
 data class LatLng(
     val latitude: Double,
     val longitude: Double,
 )
+
+
+
 
 

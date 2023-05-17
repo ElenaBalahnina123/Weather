@@ -19,12 +19,13 @@ import javax.inject.Singleton
 
 interface WeatherApi {
 
-    @GET("v1/current.json")
+    @GET("v1/forecast.json")
     suspend fun getWeather(
         @Query("key") apiKey: String,
-        @Query("q",encoded = true) query: String,
+        @Query("q", encoded = true) query: String,
         @Query("aqi") aqi: String,
-        @Query("days") days : Int
+        @Query("days") days: Int,
+        @Query("alerts") alerts: String
     ): WeatherResponse
 }
 
@@ -34,10 +35,10 @@ interface WeatherApi {
 class NetworkModule {
 
     @Provides
-    fun provideRetrofit (okHttpClient: OkHttpClient) : Retrofit {
+    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .client(okHttpClient)
-            .addConverterFactory(Json{
+            .addConverterFactory(Json {
                 ignoreUnknownKeys = true
             }.asConverterFactory("application/json".toMediaType()))
             .baseUrl("https://api.weatherapi.com/")
@@ -45,17 +46,17 @@ class NetworkModule {
     }
 
     @Provides
-    fun provideOkHttpClient() : OkHttpClient {
+    fun provideOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
-            .addInterceptor( HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        })
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
             .build()
     }
 
     @Provides
     @Singleton
-    fun provideRetrofitService(retrofit: Retrofit) : WeatherApi {
+    fun provideRetrofitService(retrofit: Retrofit): WeatherApi {
         return retrofit.create()
     }
 
@@ -66,7 +67,9 @@ class NetworkModule {
 data class WeatherResponse(
     val location: RspLocation,
     @SerialName("current")
-    val currentWeather: RspWeather
+    val currentWeather: RspWeather,
+    @SerialName("forecast")
+    val forecastWeather: RspForecast
 )
 
 @Serializable
@@ -74,7 +77,7 @@ data class RspLocation(
     val name: String,
     val lat: Float,
     val lon: Float,
-    val localtime : String
+    val localtime: String
 )
 
 @Serializable
@@ -87,6 +90,32 @@ data class RspWeather(
 )
 
 @Serializable
+data class RspForecast(
+    val forecastday: List<ForecastDay>
+)
+
+@Serializable
+data class ForecastDay(
+    val day: Day,
+    val astro: Astro,
+    val date: String
+)
+
+@Serializable
+data class Day(
+    val maxtemp_c: Float,
+    val mintemp_c: Float,
+    val avgvis_km: Float
+)
+
+@Serializable
+data class Astro(
+    val sunrise: String,
+    val sunset: String
+)
+
+@Serializable
 data class Condition(
-    val text: String
+    val text: String,
+    val icon: String
 )
