@@ -18,6 +18,7 @@ interface WeatherRepository {
     ): WeatherResponse
 
     suspend fun getLocation() : LatLng?
+
 }
 
 @Module
@@ -41,7 +42,8 @@ class WeatherRepositoryImpl @Inject constructor(
             apiKey = "ce95491a05db40e1b92121744232004",
             query = "$lat,$lon",
             aqi = "no",
-            days = 7
+            days = 7,
+            alerts="no"
         )
     }
 
